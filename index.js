@@ -7,6 +7,9 @@ const morgan = require('morgan');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
 const authVerificationRoutes = require('./routes/authVerification');
+const simulationRoutes = require('./routes/SimulationRoutes');
+// Vous pouvez également monter d'autres routes (ex: items)
+const itemsRoutes = require('./routes/items'); // Si vous souhaitez conserver vos endpoints items
 require('dotenv').config();
 
 const app = express();
@@ -21,6 +24,7 @@ app.use(rateLimit({
 app.use(cors());
 app.use(express.json());
 
+// Route racine
 app.get('/', (req, res) => {
   res.send('Hello from the backend using MySQL, Sequelize, and enhanced security!');
 });
@@ -29,6 +33,10 @@ app.get('/', (req, res) => {
 app.use('/auth', authRoutes);
 // Routes de vérification d'e-mail
 app.use('/auth', authVerificationRoutes);
+// Routes pour les simulations
+app.use('/api', simulationRoutes);
+// Routes pour items (si nécessaire)
+app.use('/api', itemsRoutes);
 
 sequelize.sync()
   .then(() => {
