@@ -11,10 +11,14 @@ const authVerificationRoutes = require("./routes/authVerification"); // si utili
 const simulationRoutes = require("./routes/SimulationRoutes");
 const itemsRoutes = require("./routes/items");
 const actionsRoutes = require("./routes/actions");
+const stockProfileRoutes = require("./routes/stock_profile");
+const searchStockRoutes = require("./routes/search_stock");
 
+// Charger les variables d'environnement
 require("dotenv").config();
 
-const app = express();
+const app = express(); // ← Déclare "app" ici avant d'utiliser app.use()
+
 const PORT = process.env.PORT || 5000;
 
 app.use(
@@ -37,8 +41,7 @@ app.use(globalLimiter);
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
-  message:
-    "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
+  message: "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
 });
 app.use("/api/actions", apiLimiter);
 
@@ -59,7 +62,11 @@ app.use("/api", simulationRoutes);
 app.use("/api", itemsRoutes);
 app.use("/api/actions", actionsRoutes);
 
-// Synchronisation avec { alter: true } pour mettre à jour la structure de la base en développement
+// Routes Yahoo Finance
+app.use("/api", searchStockRoutes);
+app.use("/api", stockProfileRoutes); // ← cette ligne doit être ici après la déclaration de "app"
+
+// Synchronisation Sequelize
 sequelize
   .sync({ alter: true })
   .then(() => {

@@ -1,4 +1,3 @@
-// middlewares/verifyToken.js
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "ma_cle_secrete";
 
@@ -7,10 +6,18 @@ function verifyToken(req, res, next) {
   if (!authHeader) {
     return res.status(401).json({ error: "Token manquant" });
   }
-  const token = authHeader.split(" ")[1];
+  
+  // Vérifier que le header est au format "Bearer <token>"
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0] !== "Bearer") {
+    return res.status(401).json({ error: "Format du token invalide" });
+  }
+  
+  const token = parts[1];
   if (!token) {
     return res.status(401).json({ error: "Token manquant" });
   }
+  
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log("Decoded token:", decoded);
