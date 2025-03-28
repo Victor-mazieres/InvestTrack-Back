@@ -64,7 +64,7 @@ router.post(
 
 // Connexion
 router.post(
-  "/login",
+  "/connexion",
   [
     body("username").notEmpty().withMessage("Username est requis"),
     body("pin")
