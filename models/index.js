@@ -18,7 +18,6 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Importation des modèles
 db.Property = require('./Property')(sequelize, DataTypes);
 db.Tenant = require('./Tenant')(sequelize, DataTypes);
 

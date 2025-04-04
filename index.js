@@ -47,14 +47,19 @@ app.use(globalLimiter);
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
-  message:
-    "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
+  message: "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
 });
 app.use("/api/actions", apiLimiter);
 
 app.use(helmet());
 app.use(morgan("combined"));
 app.use(express.json());
+
+// Middleware pour forcer l'en-tête CORS sur le dossier uploads
+app.use('/uploads', (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  next();
+}, express.static('uploads'));
 
 app.get("/", (req, res) => {
   res.send("Hello from the backend using MySQL, Sequelize, and enhanced security!");
