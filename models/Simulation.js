@@ -1,35 +1,70 @@
 // === models/Simulation.js ===
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const User = require('./User');
+module.exports = (sequelize, DataTypes) => {
+  const Simulation = sequelize.define('Simulation', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    name: DataTypes.STRING,
 
-const Simulation = sequelize.define('Simulation', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
-  },
-  name: DataTypes.STRING,
-  propertyPrice: DataTypes.FLOAT,
-  personalContribution: DataTypes.FLOAT,
-  loanFees: DataTypes.FLOAT,
-  propertyTax: DataTypes.FLOAT,
-  syndicFees: DataTypes.FLOAT,
-  ownerInsuranceAmount: DataTypes.FLOAT,
-  loanDuration: DataTypes.FLOAT,
-  interestRate: DataTypes.STRING,
-  insuranceRate: DataTypes.STRING,
-  monthlyRent: DataTypes.FLOAT,
-  monthlyCharges: DataTypes.FLOAT,
-  // Stockage des résultats calculés (optionnel) en JSON
-  results: DataTypes.JSON,
-}, {
-  tableName: 'simulations',
-  timestamps: true,
-});
+    // Champs existants
+    propertyPrice: DataTypes.FLOAT,
+    personalContribution: DataTypes.FLOAT,
+    loanFees: DataTypes.FLOAT,
+    propertyTax: DataTypes.FLOAT,
+    syndicFees: DataTypes.FLOAT,
+    ownerInsuranceAmount: DataTypes.FLOAT,
+    loanDuration: DataTypes.FLOAT,
+    interestRate: DataTypes.STRING,
+    insuranceRate: DataTypes.STRING,
+    monthlyRent: DataTypes.FLOAT,
+    monthlyCharges: DataTypes.FLOAT,
 
-// Association : Une simulation appartient à un utilisateur
-Simulation.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(Simulation, { foreignKey: 'userId' });
+    // Champs pour stocker les résultats de calcul (mensualités, rentabilité, etc.)
+    results: DataTypes.JSON,
 
-module.exports = Simulation;
+    // Nouveaux champs
+    renovationCosts: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0,
+    },
+    renovationPaidByPocket: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    syndicPeriod: {
+      type: DataTypes.STRING,
+      defaultValue: 'monthly',
+      allowNull: false,
+    },
+    ownerInsurancePeriod: {
+      type: DataTypes.STRING,
+      defaultValue: 'annual',
+      allowNull: false,
+    },
+    
+    // Champs ajoutés pour le nouveau front
+    propertyPriceNet: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      comment: "Prix net vendeur calculé (sans frais d'agence)",
+    },
+    agencyFeesPercent: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      comment: "Pourcentage des frais d'agence",
+    },
+
+    // (Optionnel) clé étrangère userId si vous liez un utilisateur à Simulation
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    }
+  }, {
+    tableName: 'simulations',
+    timestamps: true,
+  });
+
+  return Simulation;
+};

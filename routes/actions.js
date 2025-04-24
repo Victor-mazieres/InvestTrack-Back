@@ -1,7 +1,7 @@
 // routes/actions.js
 const express = require("express");
 const router = express.Router();
-const Action = require("../models/Action");
+const { Action } = require("../models");
 const verifyToken = require("../middlewares/verifyToken");
 
 router.use(verifyToken);

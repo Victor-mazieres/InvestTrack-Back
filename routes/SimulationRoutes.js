@@ -2,15 +2,19 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middlewares/authMiddleware');
-const Simulation = require('../models/Simulation');
+const { Simulation } = require('../models');  // Import du modèle Simulation
 
 // Créer une simulation (POST /simulations)
 router.post('/simulations', authMiddleware, async (req, res) => {
   try {
     const simulationData = req.body;
+
     // Lier la simulation à l'utilisateur connecté
+    // (la propriété 'userId' doit exister dans la table si vous l'avez ajoutée)
     simulationData.userId = req.user.id;
+
     const simulation = await Simulation.create(simulationData);
+
     res.status(201).json({ message: 'Simulation sauvegardée', simulation });
   } catch (error) {
     console.error(error);
@@ -32,7 +36,12 @@ router.get('/simulations', authMiddleware, async (req, res) => {
 // Récupérer une simulation par son ID (GET /simulations/:id)
 router.get('/simulations/:id', authMiddleware, async (req, res) => {
   try {
-    const simulation = await Simulation.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const simulation = await Simulation.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      }
+    });
     if (!simulation) {
       return res.status(404).json({ message: 'Simulation non trouvée' });
     }
@@ -46,7 +55,12 @@ router.get('/simulations/:id', authMiddleware, async (req, res) => {
 // Supprimer une simulation (DELETE /simulations/:id)
 router.delete('/simulations/:id', authMiddleware, async (req, res) => {
   try {
-    const simulation = await Simulation.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const simulation = await Simulation.findOne({
+      where: {
+        id: req.params.id,
+        userId: req.user.id
+      }
+    });
     if (!simulation) {
       return res.status(404).json({ message: 'Simulation non trouvée' });
     }

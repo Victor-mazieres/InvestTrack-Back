@@ -1,32 +1,15 @@
-// index.js
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan = require("morgan");
-const db = require("./models"); // Ce fichier initialise Sequelize et vos modèles
-
-// Importation de vos routes existantes
-const authRoutes = require("./routes/auth");
-const authVerificationRoutes = require("./routes/authVerification"); // si utilisé
-const simulationRoutes = require("./routes/SimulationRoutes");
-const itemsRoutes = require("./routes/items");
-const actionsRoutes = require("./routes/actions");
-const stockProfileRoutes = require("./routes/stock_profile");
-const searchStockRoutes = require("./routes/search_stock");
-
-// Importation de vos routes de biens immobiliers
-const propertyRoutes = require("./routes/propertyRoutes");
-
-// Nouvelle route pour les locataires
-const tenantRoutes = require("./routes/tenantRoutes");
-
-// Charger les variables d'environnement
+const db = require("./models"); // Charge models/index.js
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Configuration CORS, sécurité, logs, JSON, etc.
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -34,9 +17,13 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 app.options("*", cors());
 
+app.use(helmet());
+app.use(morgan("combined"));
+app.use(express.json());
+
+// Limiteurs de requêtes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -51,42 +38,41 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/actions", apiLimiter);
 
-app.use(helmet());
-app.use(morgan("combined"));
-app.use(express.json());
+// Middleware pour servir les fichiers statiques dans le dossier 'uploads'
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+    next();
+  },
+  express.static("uploads")
+);
 
-// Middleware pour forcer l'en-tête CORS sur le dossier uploads
-app.use('/uploads', (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
-  next();
-}, express.static('uploads'));
-
+// Routes principales
 app.get("/", (req, res) => {
   res.send("Hello from the backend using MySQL, Sequelize, and enhanced security!");
 });
 
-// Routes d'authentification et autres routes
-app.use("/auth", authRoutes);
-app.use("/auth", authVerificationRoutes);
-app.use("/api", simulationRoutes);
-app.use("/api", itemsRoutes);
-app.use("/api/actions", actionsRoutes);
-app.use("/api", searchStockRoutes);
-app.use("/api", stockProfileRoutes);
+// Routes d'authentification et API
+app.use("/auth", require("./routes/auth"));
+app.use("/auth", require("./routes/authVerification"));
+app.use("/api", require("./routes/SimulationRoutes"));
+app.use("/api", require("./routes/items"));
+app.use("/api/actions", require("./routes/actions"));
+app.use("/api", require("./routes/stock_profile"));
+app.use("/api", require("./routes/search_stock"));
+app.use("/api/properties", require("./routes/propertyRoutes"));
+app.use("/api/tenants", require("./routes/tenantRoutes"));
 
-// Routes pour biens immobiliers et locataires
-app.use("/api/properties", propertyRoutes);
-app.use("/api/tenants", tenantRoutes); // Nouvelle route pour les locataires
-
-// Synchronisation Sequelize et démarrage du serveur
-db.sequelize
-  .sync({ alter: true })
+// Synchronisation de la base et lancement du serveur
+db.sequelize.sync()
   .then(() => {
-    console.log("Base de données synchronisée");
+    console.log("✅ Base synchronisée !");
     app.listen(PORT, () => {
-      console.log(`Serveur en écoute sur le port ${PORT}`);
+      console.log(`🚀 Serveur en écoute sur le port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("Erreur de synchronisation de la base de données :", err);
+    console.error("❌ Erreur de synchronisation :", err);
   });
+
