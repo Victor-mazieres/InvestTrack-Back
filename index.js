@@ -1,29 +1,28 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
+// index.js
+const express   = require("express");
+const cors      = require("cors");
+const helmet    = require("helmet");
 const rateLimit = require("express-rate-limit");
-const morgan = require("morgan");
-const db = require("./models"); // Charge models/index.js
+const morgan    = require("morgan");
+const db        = require("./models");           // Sequelize + modèles
 require("dotenv").config();
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// Configuration CORS, sécurité, logs, JSON, etc.
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// ─── Sécurité & parsers ───────────────────────────────────────────────────────
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.options("*", cors());
-
 app.use(helmet());
 app.use(morgan("combined"));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Limiteurs de requêtes
+// ─── Limiteurs ────────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -31,14 +30,14 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-const apiLimiter = rateLimit({
+const actionsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
   message: "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
 });
-app.use("/api/actions", apiLimiter);
+app.use("/api/actions", actionsLimiter);
 
-// Middleware pour servir les fichiers statiques dans le dossier 'uploads'
+// ─── Fichiers statiques (uploads) ────────────────────────────────────────────
 app.use(
   "/uploads",
   (req, res, next) => {
@@ -48,14 +47,16 @@ app.use(
   express.static("uploads")
 );
 
-// Routes principales
+// ─── Routes de base ───────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.send("Hello from the backend using MySQL, Sequelize, and enhanced security!");
 });
 
-// Routes d'authentification et API
+// ─── Authentification et API principales ─────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
 app.use("/auth", require("./routes/authVerification"));
+
+// Vos routes existantes
 app.use("/api", require("./routes/SimulationRoutes"));
 app.use("/api", require("./routes/items"));
 app.use("/api/actions", require("./routes/actions"));
@@ -64,7 +65,10 @@ app.use("/api", require("./routes/search_stock"));
 app.use("/api/properties", require("./routes/propertyRoutes"));
 app.use("/api/tenants", require("./routes/tenantRoutes"));
 
-// Synchronisation de la base et lancement du serveur
+// ─── Nouvelle route financière ───────────────────────────────────────────────
+app.use("/api", require("./routes/financialRoutes")); // <-- ajouté ici
+
+// ─── Sync Sequelize & lancement du serveur ───────────────────────────────────
 db.sequelize.sync()
   .then(() => {
     console.log("✅ Base synchronisée !");
@@ -75,4 +79,3 @@ db.sequelize.sync()
   .catch((err) => {
     console.error("❌ Erreur de synchronisation :", err);
   });
-

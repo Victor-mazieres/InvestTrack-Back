@@ -64,6 +64,13 @@ module.exports = (sequelize, DataTypes) => {
     amenities: {
       type: DataTypes.JSON,
     },
+
+    // ———————————————— Nouveau champ ————————————————
+    financial: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Résultats du calcul financier (émprunt, mensualité, cash-flows, etc.)',
+    },
   }, {
     tableName: 'properties',
     timestamps: true,
