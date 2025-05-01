@@ -4,13 +4,14 @@ const cors      = require("cors");
 const helmet    = require("helmet");
 const rateLimit = require("express-rate-limit");
 const morgan    = require("morgan");
-const db        = require("./models");           // Sequelize + modèles
+const path      = require("path");
+const db        = require("./models");
 require("dotenv").config();
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── Sécurité & parsers ───────────────────────────────────────────────────────
+// Sécurité & parsers
 app.use(cors({
   origin: "http://localhost:5173",
   credentials: true,
@@ -22,53 +23,66 @@ app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Limiteurs ────────────────────────────────────────────────────────────────
-const globalLimiter = rateLimit({
+// Limiteurs
+app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Trop de requêtes, veuillez réessayer plus tard.",
-});
-app.use(globalLimiter);
-
-const actionsLimiter = rateLimit({
+}));
+app.use("/api/actions", rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
   message: "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
-});
-app.use("/api/actions", actionsLimiter);
+}));
 
-// ─── Fichiers statiques (uploads) ────────────────────────────────────────────
+// Fichiers statiques (uploads)
 app.use(
   "/uploads",
   (req, res, next) => {
     res.header("Access-Control-Allow-Origin", "http://localhost:5173");
     next();
   },
-  express.static("uploads")
+  express.static(path.join(__dirname, "uploads"))
 );
 
-// ─── Routes de base ───────────────────────────────────────────────────────────
+// Route de base
 app.get("/", (req, res) => {
   res.send("Hello from the backend using MySQL, Sequelize, and enhanced security!");
 });
 
-// ─── Authentification et API principales ─────────────────────────────────────
+// Authentification
 app.use("/auth", require("./routes/auth"));
 app.use("/auth", require("./routes/authVerification"));
 
-// Vos routes existantes
+// Routes génériques
 app.use("/api", require("./routes/SimulationRoutes"));
 app.use("/api", require("./routes/items"));
 app.use("/api/actions", require("./routes/actions"));
 app.use("/api", require("./routes/stock_profile"));
 app.use("/api", require("./routes/search_stock"));
-app.use("/api/properties", require("./routes/propertyRoutes"));
 app.use("/api/tenants", require("./routes/tenantRoutes"));
 
-// ─── Nouvelle route financière ───────────────────────────────────────────────
-app.use("/api", require("./routes/financialRoutes")); // <-- ajouté ici
+// --- Routes Immobilier, dans l'ordre spécifique ---
 
-// ─── Sync Sequelize & lancement du serveur ───────────────────────────────────
+// 1) Données financières (upsert + fetch)
+app.use(
+  "/api/properties/:id/financial",
+  require("./routes/financialRoutes")
+);
+
+// 2) Factures (CRUD)
+app.use(
+  "/api/properties/:id/bills",
+  require("./routes/billRoutes")
+);
+
+// 3) CRUD complet des propriétés (après les deux précédentes)
+app.use(
+  "/api/properties",
+  require("./routes/propertyRoutes")
+);
+
+// Sync Sequelize & lancement du serveur
 db.sequelize.sync()
   .then(() => {
     console.log("✅ Base synchronisée !");
