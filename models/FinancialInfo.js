@@ -1,4 +1,31 @@
-// models/FinancialInfo.js
+// src/models/FinancialInfo.js
+const _ = require('lodash');  // pour utilitaires (snakeToCamel)
+
+/**
+ * Convertit une chaîne snake_case en camelCase
+ */
+function snakeToCamel(str) {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * Parcourt un objet plain et renomme toutes les clés en camelCase,
+ * en convertissant aussi les strings décimales en Number.
+ */
+function convertObj(obj) {
+  const newObj = {};
+  Object.entries(obj).forEach(([key, val]) => {
+    const camelKey = snakeToCamel(key);
+    // si c’est une string de nombre décimal, on parseFloat
+    if (typeof val === 'string' && /^-?\d+\.\d+$/.test(val)) {
+      newObj[camelKey] = parseFloat(val);
+    } else {
+      newObj[camelKey] = val;
+    }
+  });
+  return newObj;
+}
+
 module.exports = (sequelize, DataTypes) => {
   const FinancialInfo = sequelize.define('FinancialInfo', {
     id: {
@@ -11,51 +38,238 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       field: 'property_id',
     },
-    prixAgence:      { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'prix_agence' },
-    fraisAgence:     { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'frais_agence' },
-    netVendeur:      { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'net_vendeur' },
-    decoteMeuble:    { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'decote_meuble' },
-    fraisNotairePct: { type: DataTypes.DECIMAL(5,2),  allowNull: false, field: 'frais_notaire_pct' },
-    travaux:         { type: DataTypes.DECIMAL(10,2), allowNull: false },
-    // ---- nouveaux champs ----
-    travauxEstimes:  { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'travaux_estimes', defaultValue: 0 },
-    travauxRestants: { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'travaux_restants', defaultValue: 0 },
-    // -------------------------
-    tauxPret:        { type: DataTypes.DECIMAL(5,2),  allowNull: false, field: 'taux_pret' },
-    dureePretAnnees: { type: DataTypes.DECIMAL(5,2),  allowNull: false, field: 'duree_pret_annees' },
-
-    taxeFonciere:        { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'taxe_fonciere' },
-    taxeFoncierePeriod:  { type: DataTypes.ENUM('monthly','annual'), allowNull: false, field: 'taxe_fonciere_period' },
-    chargesCopro:        { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'charges_copro' },
-    chargesCoproPeriod:  { type: DataTypes.ENUM('monthly','annual'), allowNull: false, field: 'charges_copro_period' },
-    assurancePno:        { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'assurance_pno' },
-    assurancePnoPeriod:  { type: DataTypes.ENUM('monthly','annual'), allowNull: false, field: 'assurance_pno_period' },
-    assurEmprunteur:     { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'assur_emprunteur' },
-    chargeRecup:         { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'charge_recup' },
-    elecGaz:             { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'elec_gaz' },
-    autreSortie:         { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'autre_sortie' },
-
-    loyerHc:     { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'loyer_hc' },
-    chargesLoc:  { type: DataTypes.DECIMAL(10,2), allowNull: false, field: 'charges_loc' },
-
-    tmi:         { type: DataTypes.DECIMAL(5,2),  allowNull: false },
-    cotSocPct:   { type: DataTypes.DECIMAL(5,2),  allowNull: false, field: 'cot_soc_pct' },
-
-    emprunt:           { type: DataTypes.DECIMAL(12,2), allowNull: false },
-    mensualite:        { type: DataTypes.DECIMAL(12,2), allowNull: false },
-    totalSorties:      { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'total_sorties' },
-    entreeHc:          { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'entree_hc' },
-    totalCc:           { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'total_cc' },
-    impotMensuel:      { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'impot_mensuel' },
-    impotAnnuel:       { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'impot_annuel' },
-    cfMensuel:         { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'cf_mensuel' },
-    cfAnnuel:          { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'cf_annuel' },
-    cfTotal:           { type: DataTypes.DECIMAL(14,2), allowNull: false, field: 'cf_total' },
-    cfNetNetMensuel:   { type: DataTypes.DECIMAL(12,2), allowNull: false, field: 'cf_net_net_mensuel' },
-    cfNetNetAnnuel:    { type: DataTypes.DECIMAL(14,2), allowNull: false, field: 'cf_net_net_annuel' },
-    cfNetNetTotal:     { type: DataTypes.DECIMAL(14,2), allowNull: false, field: 'cf_net_net_total' },
-    interets:          { type: DataTypes.DECIMAL(12,2), allowNull: false },
-    roi:               { type: DataTypes.DECIMAL(6,2),  allowNull: false },
+    prixAgence: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'prix_agence',
+      get() { return parseFloat(this.getDataValue('prixAgence')); }
+    },
+    fraisAgence: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'frais_agence',
+      get() { return parseFloat(this.getDataValue('fraisAgence')); }
+    },
+    netVendeur: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'net_vendeur',
+      get() { return parseFloat(this.getDataValue('netVendeur')); }
+    },
+    decoteMeuble: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'decote_meuble',
+      get() { return parseFloat(this.getDataValue('decoteMeuble')); }
+    },
+    fraisNotairePct: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: false,
+      field: 'frais_notaire_pct',
+      get() { return parseFloat(this.getDataValue('fraisNotairePct')); }
+    },
+    travaux: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      set(value) {
+        this.setDataValue('travaux', value);
+        this.setDataValue('travauxEstimes', value);
+      },
+      get() { return parseFloat(this.getDataValue('travaux')); }
+    },
+    travauxEstimes: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'travaux_estimes',
+      defaultValue: 0,
+      get() { return parseFloat(this.getDataValue('travauxEstimes')); }
+    },
+    travauxRestants: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'travaux_restants',
+      defaultValue: 0,
+      get() { return parseFloat(this.getDataValue('travauxRestants')); }
+    },
+    tauxPret: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: false,
+      field: 'taux_pret',
+      get() { return parseFloat(this.getDataValue('tauxPret')); }
+    },
+    dureePretAnnees: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: false,
+      field: 'duree_pret_annees',
+      get() { return parseFloat(this.getDataValue('dureePretAnnees')); }
+    },
+    taxeFonciere: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'taxe_fonciere',
+      get() { return parseFloat(this.getDataValue('taxeFonciere')); }
+    },
+    taxeFoncierePeriod: {
+      type: DataTypes.ENUM('monthly','annual'),
+      allowNull: false,
+      field: 'taxe_fonciere_period'
+    },
+    chargesCopro: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'charges_copro',
+      get() { return parseFloat(this.getDataValue('chargesCopro')); }
+    },
+    chargesCoproPeriod: {
+      type: DataTypes.ENUM('monthly','annual'),
+      allowNull: false,
+      field: 'charges_copro_period'
+    },
+    assurancePno: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'assurance_pno',
+      get() { return parseFloat(this.getDataValue('assurancePno')); }
+    },
+    assurancePnoPeriod: {
+      type: DataTypes.ENUM('monthly','annual'),
+      allowNull: false,
+      field: 'assurance_pno_period'
+    },
+    assurEmprunteur: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'assur_emprunteur',
+      get() { return parseFloat(this.getDataValue('assurEmprunteur')); }
+    },
+    chargeRecup: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'charge_recup',
+      get() { return parseFloat(this.getDataValue('chargeRecup')); }
+    },
+    elecGaz: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'elec_gaz',
+      get() { return parseFloat(this.getDataValue('elecGaz')); }
+    },
+    autreSortie: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'autre_sortie',
+      get() { return parseFloat(this.getDataValue('autreSortie')); }
+    },
+    loyerHc: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'loyer_hc',
+      get() { return parseFloat(this.getDataValue('loyerHc')); }
+    },
+    chargesLoc: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: false,
+      field: 'charges_loc',
+      get() { return parseFloat(this.getDataValue('chargesLoc')); }
+    },
+    tmi: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: false,
+      get() { return parseFloat(this.getDataValue('tmi')); }
+    },
+    cotSocPct: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: false,
+      field: 'cot_soc_pct',
+      get() { return parseFloat(this.getDataValue('cotSocPct')); }
+    },
+    emprunt: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      get() { return parseFloat(this.getDataValue('emprunt')); }
+    },
+    mensualite: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      get() { return parseFloat(this.getDataValue('mensualite')); }
+    },
+    totalSorties: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'total_sorties',
+      get() { return parseFloat(this.getDataValue('totalSorties')); }
+    },
+    entreeHc: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'entree_hc',
+      get() { return parseFloat(this.getDataValue('entreeHc')); }
+    },
+    totalCc: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'total_cc',
+      get() { return parseFloat(this.getDataValue('totalCc')); }
+    },
+    impotMensuel: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'impot_mensuel',
+      get() { return parseFloat(this.getDataValue('impotMensuel')); }
+    },
+    impotAnnuel: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'impot_annuel',
+      get() { return parseFloat(this.getDataValue('impotAnnuel')); }
+    },
+    cfMensuel: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'cf_mensuel',
+      get() { return parseFloat(this.getDataValue('cfMensuel')); }
+    },
+    cfAnnuel: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'cf_annuel',
+      get() { return parseFloat(this.getDataValue('cfAnnuel')); }
+    },
+    cfTotal: {
+      type: DataTypes.DECIMAL(14,2),
+      allowNull: false,
+      field: 'cf_total',
+      get() { return parseFloat(this.getDataValue('cfTotal')); }
+    },
+    cfNetNetMensuel: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      field: 'cf_net_net_mensuel',
+      get() { return parseFloat(this.getDataValue('cfNetNetMensuel')); }
+    },
+    cfNetNetAnnuel: {
+      type: DataTypes.DECIMAL(14,2),
+      allowNull: false,
+      field: 'cf_net_net_annuel',
+      get() { return parseFloat(this.getDataValue('cfNetNetAnnuel')); }
+    },
+    cfNetNetTotal: {
+      type: DataTypes.DECIMAL(14,2),
+      allowNull: false,
+      field: 'cf_net_net_total',
+      get() { return parseFloat(this.getDataValue('cfNetNetTotal')); }
+    },
+    interets: {
+      type: DataTypes.DECIMAL(12,2),
+      allowNull: false,
+      get() { return parseFloat(this.getDataValue('interets')); }
+    },
+    roi: {
+      type: DataTypes.DECIMAL(6,2),
+      allowNull: false,
+      defaultValue: 0,
+      get() { return parseFloat(this.getDataValue('roi')); }
+    },
   }, {
     tableName: 'financial_infos',
     timestamps: true,

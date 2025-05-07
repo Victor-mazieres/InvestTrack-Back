@@ -1,4 +1,4 @@
-// models/Bill.js
+// src/models/Bill.js
 module.exports = (sequelize, DataTypes) => {
   const Bill = sequelize.define('Bill', {
     id: {
@@ -10,6 +10,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'property_id',
+    },
+    title: {                                  // ← on ajoute ce champ
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     amount: {
       type: DataTypes.DECIMAL(10,2),

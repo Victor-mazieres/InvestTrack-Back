@@ -76,6 +76,12 @@ app.use(
   require("./routes/billRoutes")
 );
 
+// 2.5) Photos (CRUD)
+app.use(
+  "/api/properties",
+  require("./routes/propertyPhotos")
+);
+
 // 3) CRUD complet des propriétés (après les deux précédentes)
 app.use(
   "/api/properties",

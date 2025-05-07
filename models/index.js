@@ -20,6 +20,7 @@ db.sequelize = sequelize;
 // Import des modèles
 db.User               = require('./User')(sequelize, DataTypes);
 db.Property           = require('./Property')(sequelize, DataTypes);
+db.PropertyPhoto      = require('./PropertyPhoto')(sequelize, DataTypes);
 db.Tenant             = require('./Tenant')(sequelize, DataTypes);
 db.Action             = require('./Action')(sequelize, DataTypes);
 db.MortgageSimulation = require('./MortgageSimulation')(sequelize, DataTypes);
@@ -50,5 +51,9 @@ db.FinancialInfo.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'propert
 // Associations Bill ↔ Property
 db.Property.hasMany(db.Bill, { foreignKey: 'propertyId', as: 'bills' });
 db.Bill.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property' });
+
+// Associations PropertyPhoto ↔ Property
+db.PropertyPhoto.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property' });
+db.Property.hasMany(db.PropertyPhoto, { foreignKey: 'propertyId', as: 'photos' });
 
 module.exports = db;

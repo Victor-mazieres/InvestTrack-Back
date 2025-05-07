@@ -1,4 +1,4 @@
-// routes/billRoutes.js
+// src/routes/billRoutes.js
 const express = require('express');
 const multer  = require('multer');
 const path    = require('path');
@@ -38,19 +38,22 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/properties/:id/bills
+// champs attendus : title, amount, file (multipart/form-data)
 router.post('/', upload.single('file'), async (req, res) => {
   try {
     const propertyId = parseInt(req.params.id, 10);
     const prop = await Property.findByPk(propertyId);
     if (!prop) return res.status(404).json({ error: 'Property not found' });
 
-    if (!req.file)        return res.status(400).json({ error: 'Missing file' });
-    if (!req.body.amount) return res.status(400).json({ error: 'Missing amount' });
+    const { title, amount } = req.body;
+    if (!title)  return res.status(400).json({ error: 'Missing title' });
+    if (!amount) return res.status(400).json({ error: 'Missing amount' });
+    if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
     const fileUrl = `/uploads/bills/${req.file.filename}`;
-    const amount  = parseFloat(req.body.amount);
+    const parsedAmount = parseFloat(amount);
 
-    const bill = await Bill.create({ propertyId, amount, fileUrl });
+    const bill = await Bill.create({ propertyId, title, amount: parsedAmount, fileUrl });
     res.status(201).json(bill);
   } catch (err) {
     console.error(err);

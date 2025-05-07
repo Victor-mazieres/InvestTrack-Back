@@ -1,4 +1,4 @@
-// models/Property.js
+// src/models/Property.js
 module.exports = (sequelize, DataTypes) => {
   const Property = sequelize.define('Property', {
     userId: {
@@ -60,12 +60,9 @@ module.exports = (sequelize, DataTypes) => {
     eauChaude: {
       type: DataTypes.STRING,
     },
-    // On stocke les équipements sous forme d'objet JSON
     amenities: {
       type: DataTypes.JSON,
     },
-
-    // ———————————————— Nouveau champ ————————————————
     financial: {
       type: DataTypes.JSON,
       allowNull: true,
@@ -75,6 +72,14 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'properties',
     timestamps: true,
   });
+
+  Property.associate = models => {
+    Property.hasOne(models.FinancialInfo, {
+      foreignKey: 'propertyId',
+      as: 'financialInfo',
+      onDelete: 'CASCADE',
+    });
+  };
 
   return Property;
 };
