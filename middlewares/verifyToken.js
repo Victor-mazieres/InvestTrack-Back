@@ -6,18 +6,13 @@ function verifyToken(req, res, next) {
   if (!authHeader) {
     return res.status(401).json({ error: "Token manquant" });
   }
-  
-  // Vérifier que le header est au format "Bearer <token>"
+
   const parts = authHeader.split(" ");
   if (parts.length !== 2 || parts[0] !== "Bearer") {
     return res.status(401).json({ error: "Format du token invalide" });
   }
-  
+
   const token = parts[1];
-  if (!token) {
-    return res.status(401).json({ error: "Token manquant" });
-  }
-  
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log("Decoded token:", decoded);
@@ -25,7 +20,19 @@ function verifyToken(req, res, next) {
     next();
   } catch (err) {
     console.error("Erreur verifyToken:", err);
-    return res.status(401).json({ error: "Token invalide" });
+
+    if (err.name === "TokenExpiredError") {
+      // cas où le token a bien été signé mais est expiré
+      return res.status(401).json({ error: "Token expiré, veuillez vous reconnecter." });
+    }
+
+    if (err.name === "JsonWebTokenError") {
+      // cas de token mal formé, signature invalide, etc.
+      return res.status(401).json({ error: "Token invalide." });
+    }
+
+    // toute autre erreur
+    return res.status(500).json({ error: "Erreur serveur lors de la vérification du token." });
   }
 }
 

@@ -1,31 +1,4 @@
 // src/models/FinancialInfo.js
-const _ = require('lodash');  // pour utilitaires (snakeToCamel)
-
-/**
- * Convertit une chaîne snake_case en camelCase
- */
-function snakeToCamel(str) {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-/**
- * Parcourt un objet plain et renomme toutes les clés en camelCase,
- * en convertissant aussi les strings décimales en Number.
- */
-function convertObj(obj) {
-  const newObj = {};
-  Object.entries(obj).forEach(([key, val]) => {
-    const camelKey = snakeToCamel(key);
-    // si c’est une string de nombre décimal, on parseFloat
-    if (typeof val === 'string' && /^-?\d+\.\d+$/.test(val)) {
-      newObj[camelKey] = parseFloat(val);
-    } else {
-      newObj[camelKey] = val;
-    }
-  });
-  return newObj;
-}
-
 module.exports = (sequelize, DataTypes) => {
   const FinancialInfo = sequelize.define('FinancialInfo', {
     id: {
@@ -285,4 +258,4 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   return FinancialInfo;
-};
+}

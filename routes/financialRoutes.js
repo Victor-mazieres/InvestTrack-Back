@@ -1,3 +1,4 @@
+// src/routes/propertyFinancialRoutes.js
 const express = require('express');
 const { FinancialInfo, Property } = require('../models');
 const router = express.Router({ mergeParams: true });
@@ -8,12 +9,12 @@ function remap(fin) {
   return {
     ...data,
     // Acronyms upper-case for front-end
-    loyerHC: data.loyerHc,
-    chargesLoc: data.chargesLoc,
-    entreeHC: data.entreeHc,
-    totalCC: data.totalCc,
+    loyerHC:            data.loyerHc,
+    chargesLoc:         data.chargesLoc,
+    entreeHC:           data.entreeHc,
+    totalCC:            data.totalCc,
     // PNO field mapping
-    assurancePNO: data.assurancePno,
+    assurancePNO:       data.assurancePno,
     assurancePNOPeriod: data.assurancePnoPeriod,
   };
 }
@@ -42,7 +43,7 @@ router.post('/', async (req, res) => {
     const prop = await Property.findByPk(propertyId);
     if (!prop) return res.status(404).json({ error: 'Property not found' });
 
-    // Destructure request body
+    // Destructure request body with correct camelCase keys
     const {
       prixAgence = 0,
       fraisAgence = 0,
@@ -56,21 +57,21 @@ router.post('/', async (req, res) => {
       taxeFoncierePeriod = 'annual',
       chargesCopro = 0,
       chargesCoproPeriod = 'annual',
-      assurancePNO = 0,
-      assurancePNOPeriod = 'annual',
+      assurancePno = 0,
+      assurancePnoPeriod = 'annual',
       assurEmprunteur = 0,
       chargeRecup = 0,
       elecGaz = 0,
       autreSortie = 0,
-      loyerHC = 0,
+      loyerHc = 0,
       chargesLoc = 0,
       tmi = 0,
       cotSocPct = 0,
       emprunt = 0,
       mensualite = 0,
       totalSorties = 0,
-      entreeHC = 0,
-      totalCC = 0,
+      entreeHc = 0,
+      totalCc = 0,
       impotMensuel = 0,
       impotAnnuel = 0,
       cfMensuel = 0,
@@ -85,7 +86,7 @@ router.post('/', async (req, res) => {
       travauxRestants = 0,
     } = req.body;
 
-    // Map to model fields
+    // Map to model fields (Sequelize handles snake_case mapping via 'field')
     const payload = {
       propertyId,
       prixAgence,
@@ -95,26 +96,26 @@ router.post('/', async (req, res) => {
       fraisNotairePct,
       travaux,
       tauxPret,
-      dureePretAnnees: dureePret,
+      dureePretAnnees:   dureePret,
       taxeFonciere,
       taxeFoncierePeriod,
       chargesCopro,
       chargesCoproPeriod,
-      assurancePno: assurancePNO,
-      assurancePnoPeriod: assurancePNOPeriod,
+      assurancePno,
+      assurancePnoPeriod,
       assurEmprunteur,
       chargeRecup,
       elecGaz,
       autreSortie,
-      loyerHc: loyerHC,
+      loyerHc,
       chargesLoc,
       tmi,
       cotSocPct,
       emprunt,
       mensualite,
       totalSorties,
-      entreeHc: entreeHC,
-      totalCc: totalCC,
+      entreeHc,
+      totalCc,
       impotMensuel,
       impotAnnuel,
       cfMensuel,
