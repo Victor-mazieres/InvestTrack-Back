@@ -14,6 +14,9 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     email: { type: DataTypes.STRING, allowNull: true },
+    emailVerified:{ type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    verifyCode:   { type: DataTypes.STRING,  allowNull: true },
+    codeExpires:  { type: DataTypes.DATE,    allowNull: true },
     password: { type: DataTypes.STRING, allowNull: false },
     country: { type: DataTypes.STRING, allowNull: true },
     address: { type: DataTypes.STRING, allowNull: true },

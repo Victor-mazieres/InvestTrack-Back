@@ -1,39 +1,23 @@
 // index.js
-const express   = require("express");
-const cors      = require("cors");
-const helmet    = require("helmet");
-const rateLimit = require("express-rate-limit");
-const morgan    = require("morgan");
-const path      = require("path");
-const db        = require("./models");
+const express = require("express");
+const morgan = require("morgan");
+const path = require("path");
+const db = require("./models");
+const setupSecurity = require("./middlewares/security");
 require("dotenv").config();
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Sécurité & parsers
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-app.options("*", cors());
-app.use(helmet());
+// Appliquer la configuration de sécurité
+setupSecurity(app);
+
+// Logs
 app.use(morgan("combined"));
+
+// Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Limiteurs
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Trop de requêtes, veuillez réessayer plus tard.",
-}));
-app.use("/api/actions", rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-  message: "Trop de requêtes vers /api/actions, veuillez réessayer plus tard.",
-}));
 
 // Fichiers statiques (uploads)
 app.use(
@@ -63,7 +47,6 @@ app.use("/api", require("./routes/search_stock"));
 app.use("/api/tenants", require("./routes/tenantRoutes"));
 
 // --- Routes Immobilier, dans l'ordre spécifique ---
-
 // 1) Données financières (upsert + fetch)
 app.use(
   "/api/properties/:id/financial",
@@ -78,7 +61,7 @@ app.use(
 
 // 2.5) Photos (CRUD)
 app.use(
-  "/api/properties",
+  "/api/properties/:propertyId/photos",
   require("./routes/propertyPhotos")
 );
 
