@@ -9,9 +9,8 @@ const cors          = require('cors');
 const cookieParser  = require('cookie-parser');
 const csurf         = require('csurf');
 
-/**
- * Protection basique contre les injections SQL (filet de secours).
- */
+// Protection basique contre les injections SQL (filet de secours).
+ 
 function sqlSanitize(req, res, next) {
   const sanitizeValue = value => {
     if (typeof value === 'string') {
@@ -35,9 +34,8 @@ function sqlSanitize(req, res, next) {
   next();
 }
 
-/**
- * Configure l'ensemble des protections de sécurité de l'application.
- */
+//Configure l'ensemble des protections de sécurité de l'application.
+ 
 function setupSecurity(app) {
   // 0) Désactiver X-Powered-By
   app.disable('x-powered-by');

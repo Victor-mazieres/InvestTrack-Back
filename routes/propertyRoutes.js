@@ -22,15 +22,37 @@ function remapFinancial(fin) {
   };
 }
 
+/** Normalise le mode reçu depuis le front */
+function normalizeMode(raw) {
+  if (!raw) return null;
+  const v = String(raw).trim().toLowerCase();
+  if (v === 'location') return 'location';
+  // On accepte aussi "achat", "achat/revente", "achat_revente"
+  if (['achat', 'achat/revente', 'achat_revente'].includes(v)) return 'achat_revente';
+  return null;
+}
+
 // --- CRUD des biens ---
 
 // Créer un bien
 router.post('/', async (req, res) => {
   try {
-    if (!req.body.userId) {
+    const { userId } = req.body;
+    if (!userId) {
       return res.status(400).json({ error: 'userId est requis' });
     }
-    const newProperty = await Property.create(req.body);
+
+    // Validation / normalisation du mode
+    const mode = normalizeMode(req.body.mode);
+    if (!mode) {
+      return res.status(400).json({
+        error: "Le champ 'mode' est requis et doit valoir 'achat_revente' ou 'location'."
+      });
+    }
+
+    const payload = { ...req.body, mode };
+
+    const newProperty = await Property.create(payload);
     return res.status(201).json(newProperty);
   } catch (error) {
     console.error('Erreur création bien :', error);
@@ -118,7 +140,20 @@ router.post('/:id/financial', async (req, res) => {
 // Mettre à jour un bien
 router.put('/:id', async (req, res) => {
   try {
-    const [updated] = await Property.update(req.body, {
+    const body = { ...req.body };
+
+    // Si 'mode' est présent dans la mise à jour, on le normalise/valide
+    if (Object.prototype.hasOwnProperty.call(body, 'mode')) {
+      const normalized = normalizeMode(body.mode);
+      if (!normalized) {
+        return res.status(400).json({
+          error: "Le champ 'mode' doit valoir 'achat_revente' ou 'location'."
+        });
+      }
+      body.mode = normalized;
+    }
+
+    const [updated] = await Property.update(body, {
       where: { id: req.params.id }
     });
     if (!updated) {

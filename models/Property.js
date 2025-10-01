@@ -5,6 +5,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    // Mode du bien: 'achat_revente' ou 'location'
+    mode: {
+      type: DataTypes.ENUM('achat_revente', 'location'),
+      allowNull: false,
+      comment: 'Type d’opération: achat/revente ou location',
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
