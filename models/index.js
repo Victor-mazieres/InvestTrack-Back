@@ -17,7 +17,7 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Import des modèles
+// Import des modèles existants
 db.User               = require('./User')(sequelize, DataTypes);
 db.Property           = require('./Property')(sequelize, DataTypes);
 db.PropertyPhoto      = require('./PropertyPhoto')(sequelize, DataTypes);
@@ -27,6 +27,8 @@ db.MortgageSimulation = require('./MortgageSimulation')(sequelize, DataTypes);
 db.Simulation         = require('./Simulation')(sequelize, DataTypes);
 db.FinancialInfo      = require('./FinancialInfo')(sequelize, DataTypes);
 db.Bill               = require('./Bill')(sequelize, DataTypes);
+// 🔹 Nouveau
+db.Work               = require('./Work')(sequelize, DataTypes);
 
 // Associations Utilisateur ↔ Action
 db.Action.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
@@ -55,5 +57,13 @@ db.Bill.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property' });
 // Associations PropertyPhoto ↔ Property
 db.PropertyPhoto.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property' });
 db.Property.hasMany(db.PropertyPhoto, { foreignKey: 'propertyId', as: 'photos' });
+
+// 🔹 Associations Work ↔ User / Property
+db.Work.belongsTo(db.User,    { foreignKey: 'userId',    as: 'user' });
+db.User.hasMany(db.Work,      { foreignKey: 'userId',    as: 'works' });
+
+db.Work.belongsTo(db.Property,{ foreignKey: 'propertyId', as: 'property' });
+db.Property.hasMany(db.Work,  { foreignKey: 'propertyId', as: 'works' });
+
 
 module.exports = db;

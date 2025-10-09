@@ -9,7 +9,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Appliquer la configuration de sécurité
+// Sécurité (CORS, headers, rate-limit...)
 setupSecurity(app);
 
 // Logs
@@ -34,7 +34,7 @@ app.get("/", (req, res) => {
   res.send("Hello from the backend using MySQL, Sequelize, and enhanced security!");
 });
 
-// Authentification
+// Auth
 app.use("/auth", require("./routes/auth"));
 app.use("/auth", require("./routes/authVerification"));
 
@@ -46,39 +46,30 @@ app.use("/api", require("./routes/stock_profile"));
 app.use("/api", require("./routes/search_stock"));
 app.use("/api/tenants", require("./routes/tenantRoutes"));
 
-// --- Routes Immobilier, dans l'ordre spécifique ---
-// 1) Données financières (upsert + fetch)
-app.use(
-  "/api/properties/:id/financial",
-  require("./routes/financialRoutes")
-);
+// Immobilier spécifique
+app.use("/api/properties/:id/financial", require("./routes/financialRoutes"));
+app.use("/api/properties/:propertyId/photos", require("./routes/propertyPhotos"));
+app.use("/api/properties/:id/bills", require("./routes/billRoutes"));
 
-// 2) Factures (CRUD)
-app.use(
-  "/api/properties/:id/bills",
-  require("./routes/billRoutes")
-);
+// ✅ Suivi des travaux (par user & property)
+app.use("/api/properties/:propertyId/works", require("./routes/work"));
+app.use("/api/tasks", require("./routes/tasks")); // ⬅️ ajoute ceci
 
-// 2.5) Photos (CRUD)
-app.use(
-  "/api/properties/:propertyId/photos",
-  require("./routes/propertyPhotos")
-);
+// CRUD propriétés
+app.use("/api/properties", require("./routes/propertyRoutes"));
 
-// 3) CRUD complet des propriétés (après les deux précédentes)
-app.use(
-  "/api/properties",
-  require("./routes/propertyRoutes")
-);
-
-// Sync Sequelize & lancement du serveur
-db.sequelize.sync()
-  .then(() => {
+// Démarrage SAFE : pas de force/alter
+async function start() {
+  try {
+    await db.sequelize.authenticate();
+    await db.sequelize.sync(); // crée les tables manquantes sans altérer les existantes
     console.log("✅ Base synchronisée !");
     app.listen(PORT, () => {
       console.log(`🚀 Serveur en écoute sur le port ${PORT}`);
     });
-  })
-  .catch((err) => {
-    console.error("❌ Erreur de synchronisation :", err);
-  });
+  } catch (err) {
+    console.error("❌ Erreur de démarrage :", err);
+    process.exit(1);
+  }
+}
+start();

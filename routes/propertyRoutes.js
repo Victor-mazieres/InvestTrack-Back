@@ -1,18 +1,12 @@
 // src/routes/propertyRoutes.js
-
 const express = require('express');
 const router  = express.Router();
 const { Property, FinancialInfo } = require('../models');
 
-/**
- * Helper pour remapper certains champs de financialInfo
- * (acronymes en majuscules, suffixes HC/CC, etc.)
- */
 function remapFinancial(fin) {
   if (!fin || Object.keys(fin).length === 0) return {};
   return {
     ...fin,
-    // Acronymes / key format pour le front-end
     loyerHC:            fin.loyerHc,
     chargesLoc:         fin.chargesLoc,
     entreeHC:           fin.entreeHc,
@@ -22,36 +16,28 @@ function remapFinancial(fin) {
   };
 }
 
-/** Normalise le mode reçu depuis le front */
-function normalizeMode(raw) {
-  if (!raw) return null;
-  const v = String(raw).trim().toLowerCase();
-  if (v === 'location') return 'location';
-  // On accepte aussi "achat", "achat/revente", "achat_revente"
-  if (['achat', 'achat/revente', 'achat_revente'].includes(v)) return 'achat_revente';
+function normalizeRentalKind(raw) {
+  const v = String(raw || '').trim().toUpperCase();
+  if (['LLD', 'LCD', 'AV'].includes(v)) return v;
   return null;
 }
 
-// --- CRUD des biens ---
-
-// Créer un bien
+// --- CREATE ---
 router.post('/', async (req, res) => {
   try {
     const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ error: 'userId est requis' });
+    if (!userId) return res.status(400).json({ error: 'userId est requis' });
+
+    // On exige rentalKind (LLD | LCD | AV)
+    const rentalKind = normalizeRentalKind(req.body.rentalKind);
+    if (!rentalKind) {
+      return res.status(400).json({ error: "rentalKind doit valoir 'LLD', 'LCD' ou 'AV'." });
     }
 
-    // Validation / normalisation du mode
-    const mode = normalizeMode(req.body.mode);
-    if (!mode) {
-      return res.status(400).json({
-        error: "Le champ 'mode' est requis et doit valoir 'achat_revente' ou 'location'."
-      });
-    }
+    // Mode est déduit par le hook (mais on peut sécuriser ici)
+    const mode = rentalKind === 'AV' ? 'achat_revente' : 'location';
 
-    const payload = { ...req.body, mode };
-
+    const payload = { ...req.body, rentalKind, mode };
     const newProperty = await Property.create(payload);
     return res.status(201).json(newProperty);
   } catch (error) {
@@ -60,7 +46,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Lire tous les biens + financialInfo (toujours un objet, même vide)
+// --- READ ALL ---
 router.get('/', async (req, res) => {
   try {
     const where = req.query.userId ? { userId: req.query.userId } : {};
@@ -75,26 +61,23 @@ router.get('/', async (req, res) => {
       return plain;
     });
 
-    return res.json(output);
+    return res.json(output); // toujours un tableau
   } catch (error) {
     console.error('Erreur récupération biens :', error);
     return res.status(500).json({ error: 'Une erreur est survenue' });
   }
 });
 
-// Lire un bien + financialInfo (toujours un objet, même vide)
+// --- READ ONE ---
 router.get('/:id', async (req, res) => {
   try {
     const property = await Property.findByPk(req.params.id, {
       include: [{ model: FinancialInfo, as: 'financialInfo' }]
     });
-    if (!property) {
-      return res.status(404).json({ error: 'Bien introuvable' });
-    }
+    if (!property) return res.status(404).json({ error: 'Bien introuvable' });
 
     const plain = property.get({ plain: true });
     plain.financialInfo = remapFinancial(plain.financialInfo);
-
     return res.json(plain);
   } catch (error) {
     console.error('Erreur récupération bien :', error);
@@ -102,15 +85,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Lire uniquement les données financières d’un bien (toujours un objet)
+// --- READ FINANCIAL ONLY ---
 router.get('/:id/financial', async (req, res) => {
   try {
     const finInstance = await FinancialInfo.findOne({
       where: { propertyId: req.params.id }
     });
-    const plain = finInstance
-      ? finInstance.get({ plain: true })
-      : {};
+    const plain = finInstance ? finInstance.get({ plain: true }) : {};
     return res.json(remapFinancial(plain));
   } catch (error) {
     console.error('Erreur récupération financialInfo :', error);
@@ -118,7 +99,7 @@ router.get('/:id/financial', async (req, res) => {
   }
 });
 
-// Créer ou mettre à jour les données financières d’un bien
+// --- UPSERT FINANCIAL ---
 router.post('/:id/financial', async (req, res) => {
   try {
     const propertyId = req.params.id;
@@ -126,9 +107,7 @@ router.post('/:id/financial', async (req, res) => {
       where: { propertyId },
       defaults: { propertyId, ...req.body },
     });
-    if (!created) {
-      await finInfo.update(req.body);
-    }
+    if (!created) await finInfo.update(req.body);
     const plain = finInfo.get({ plain: true });
     return res.json(remapFinancial(plain));
   } catch (error) {
@@ -137,28 +116,25 @@ router.post('/:id/financial', async (req, res) => {
   }
 });
 
-// Mettre à jour un bien
+// --- UPDATE ---
 router.put('/:id', async (req, res) => {
   try {
     const body = { ...req.body };
 
-    // Si 'mode' est présent dans la mise à jour, on le normalise/valide
-    if (Object.prototype.hasOwnProperty.call(body, 'mode')) {
-      const normalized = normalizeMode(body.mode);
-      if (!normalized) {
-        return res.status(400).json({
-          error: "Le champ 'mode' doit valoir 'achat_revente' ou 'location'."
-        });
+    if (Object.prototype.hasOwnProperty.call(body, 'rentalKind')) {
+      const rk = normalizeRentalKind(body.rentalKind);
+      if (!rk) {
+        return res.status(400).json({ error: "rentalKind doit valoir 'LLD', 'LCD' ou 'AV'." });
       }
-      body.mode = normalized;
+      body.rentalKind = rk;
+      body.mode = rk === 'AV' ? 'achat_revente' : 'location';
     }
 
     const [updated] = await Property.update(body, {
       where: { id: req.params.id }
     });
-    if (!updated) {
-      return res.status(404).json({ error: 'Bien introuvable' });
-    }
+    if (!updated) return res.status(404).json({ error: 'Bien introuvable' });
+
     const updatedProperty = await Property.findByPk(req.params.id, {
       include: [{ model: FinancialInfo, as: 'financialInfo' }]
     });
@@ -171,15 +147,11 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Supprimer un bien
+// --- DELETE ---
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Property.destroy({
-      where: { id: req.params.id }
-    });
-    if (!deleted) {
-      return res.status(404).json({ error: 'Bien introuvable' });
-    }
+    const deleted = await Property.destroy({ where: { id: req.params.id } });
+    if (!deleted) return res.status(404).json({ error: 'Bien introuvable' });
     return res.json({ message: 'Bien supprimé' });
   } catch (error) {
     console.error('Erreur suppression bien :', error);
