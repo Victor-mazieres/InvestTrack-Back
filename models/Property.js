@@ -6,47 +6,63 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
 
-    // Ajout : pivot côté front (LLD | LCD | AV)
+    // Pivot côté front (LLD | LCD | AV)
     rentalKind: {
       type: DataTypes.ENUM('LLD', 'LCD', 'AV'),
       allowNull: false,
       comment: 'LLD=longue durée, LCD=courte durée, AV=achat/revente',
     },
 
-    // Mode du bien: 'achat_revente' ou 'location' (dérivé de rentalKind)
+    // Dérivé de rentalKind
     mode: {
       type: DataTypes.ENUM('achat_revente', 'location'),
       allowNull: false,
       comment: 'Type d’opération: achat/revente ou location',
     },
 
-    name: { type: DataTypes.STRING, allowNull: false },
-    address: { type: DataTypes.STRING },
-    postalCode: { type: DataTypes.STRING },
-    city: { type: DataTypes.STRING },
-    surface: { type: DataTypes.FLOAT },
-    propertyType: { type: DataTypes.STRING },
-    building: { type: DataTypes.STRING },
-    lot: { type: DataTypes.STRING },
-    floor: { type: DataTypes.STRING },
-    door: { type: DataTypes.STRING },
+    name:        { type: DataTypes.STRING, allowNull: false },
+    address:     { type: DataTypes.STRING },
+    postalCode:  { type: DataTypes.STRING },
+    city:        { type: DataTypes.STRING },
+    surface:     { type: DataTypes.FLOAT },
+    propertyType:{ type: DataTypes.STRING },
+    building:    { type: DataTypes.STRING },
+    lot:         { type: DataTypes.STRING },
+    floor:       { type: DataTypes.STRING },
+    door:        { type: DataTypes.STRING },
 
-    // si tu veux garder “owner” pour locataire sur LLD/LCD
+    // ex “owner” (souvent id locataire dans ton app)
     owner: { type: DataTypes.STRING },
 
     acquisitionDate: { type: DataTypes.DATE },
-    value: { type: DataTypes.FLOAT },
-    pieces: { type: DataTypes.INTEGER },
-    toilettes: { type: DataTypes.INTEGER },
-    sallesDeBain: { type: DataTypes.INTEGER },
-    chauffage: { type: DataTypes.STRING },
-    eauChaude: { type: DataTypes.STRING },
-    amenities: { type: DataTypes.JSON },
+    value:           { type: DataTypes.FLOAT },
 
+    // ---- Détails logement
+    pieces:       { type: DataTypes.INTEGER },
+    toilettes:    { type: DataTypes.INTEGER },
+    sallesDeBain: { type: DataTypes.INTEGER },
+    chauffage:    { type: DataTypes.STRING },
+    eauChaude:    { type: DataTypes.STRING },
+    amenities:    { type: DataTypes.JSON },
+
+    // ---- ✅ Meublé / non meublé (NOUVEAU)
+    isFurnished: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true, // null = non renseigné
+      comment: 'true = meublé, false = non meublé, null = non renseigné',
+    },
+    furnished: {
+      // si tu préfères libre, passe en STRING
+      type: DataTypes.ENUM('meublé', 'non_meublé'),
+      allowNull: true,
+      comment: 'Valeur textuelle dérivée de isFurnished',
+    },
+
+    // Résultats calcul financier (si tu gardes)
     financial: {
       type: DataTypes.JSON,
       allowNull: true,
-      comment: 'Résultats calcul financier',
+      comment: 'Résultats calcul financier (legacy)',
     },
   }, {
     tableName: 'properties',
@@ -57,14 +73,25 @@ module.exports = (sequelize, DataTypes) => {
         const rk = String(instance.rentalKind || '').toUpperCase();
         if (rk === 'AV') instance.mode = 'achat_revente';
         else if (rk === 'LLD' || rk === 'LCD') instance.mode = 'location';
+
+        // Derive furnished à partir de isFurnished si présent
+        if (instance.isFurnished === true)  instance.furnished = 'meublé';
+        if (instance.isFurnished === false) instance.furnished = 'non_meublé';
+        if (instance.isFurnished == null)   instance.furnished = null;
       },
     },
   });
 
   Property.associate = models => {
-    Property.hasOne(models.FinancialInfo, {
+    // ⚠️ Corrigé : on pointe vers les 2 modèles séparés
+    Property.hasOne(models.FinancialInfoLLD, {
       foreignKey: 'propertyId',
-      as: 'financialInfo',
+      as: 'financialLld',
+      onDelete: 'CASCADE',
+    });
+    Property.hasOne(models.FinancialInfoLCD, {
+      foreignKey: 'propertyId',
+      as: 'financialCld',
       onDelete: 'CASCADE',
     });
   };
