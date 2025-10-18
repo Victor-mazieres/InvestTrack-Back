@@ -1,27 +1,24 @@
 // middlewares/security.js
-const express       = require('express');
-const session       = require('express-session');
-const rateLimit     = require('express-rate-limit');
-const helmet        = require('helmet');
-const xss           = require('xss-clean');
-const hpp           = require('hpp');
-const cors          = require('cors');
-const cookieParser  = require('cookie-parser');
-const csurf         = require('csurf');
+const express       = require("express");
+const session       = require("express-session");
+const rateLimit     = require("express-rate-limit");
+const helmet        = require("helmet");
+const xss           = require("xss-clean");
+const hpp           = require("hpp");
+const cors          = require("cors");
+const cookieParser  = require("cookie-parser");
+const csurf         = require("csurf");
 
-// Protection basique contre les injections SQL (filet de secours).
- 
-function sqlSanitize(req, res, next) {
-  const sanitizeValue = value => {
-    if (typeof value === 'string') {
-      return value.replace(/(\%27)|(\')|(\-\-)|(\%23)|(#)|(\;)/gi, '');
+/* ---------- Mini filet anti-injections basique ---------- */
+function sqlSanitize(req, _res, next) {
+  const sanitizeValue = (value) => {
+    if (typeof value === "string") {
+      return value.replace(/(\%27)|(')|(--)|(\%23)|(#)|(;)/gi, "");
     }
-    if (Array.isArray(value)) {
-      return value.map(sanitizeValue);
-    }
-    if (value && typeof value === 'object') {
-      return Object.keys(value).reduce((acc, key) => {
-        acc[key] = sanitizeValue(value[key]);
+    if (Array.isArray(value)) return value.map(sanitizeValue);
+    if (value && typeof value === "object") {
+      return Object.keys(value).reduce((acc, k) => {
+        acc[k] = sanitizeValue(value[k]);
         return acc;
       }, {});
     }
@@ -34,151 +31,163 @@ function sqlSanitize(req, res, next) {
   next();
 }
 
-//Configure l'ensemble des protections de sécurité de l'application.
- 
-function setupSecurity(app) {
-  // 0) Désactiver X-Powered-By
-  app.disable('x-powered-by');
+/* ================================================================== */
+/*  setupSecurity: configure toutes les protections de l’application   */
+/*  👉 on reçoit FRONT_ORIGIN depuis index.js pour autoriser Netlify   */
+/* ================================================================== */
+function setupSecurity(app, FRONT_ORIGIN) {
+  // Valeurs par défaut
+  const isProd = process.env.NODE_ENV === "production";
+  const frontOrigin = (FRONT_ORIGIN || "http://localhost:5173").replace(/\/$/, "");
+  const allowedOrigins = new Set([
+    frontOrigin,
+    "http://localhost:5173",
+  ]);
+
+  // 0) Bonne pratique: l’en-tête X-Powered-By
+  app.disable("x-powered-by");
 
   // 1) Body parser JSON limité
-  app.use(express.json({ limit: '10kb' }));
+  app.use(express.json({ limit: "10kb" }));
 
-  // 2) Cookie parser + Session
+  // 2) Cookies + Session (cookies compatibles cross-site en prod)
   app.use(cookieParser());
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'default_secret',
+    secret: process.env.SESSION_SECRET || "default_secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 1000 * 60 * 60 // 1 heure
-    }
+      secure: isProd,                     // cookie envoyé uniquement en HTTPS en prod
+      sameSite: isProd ? "none" : "lax",  // indispensable si front & back ont des domaines différents
+      maxAge: 1000 * 60 * 60,             // 1h
+    },
   }));
 
-  // 3) Helmet pour en-têtes HTTP sécurisées
+  // 3) Helmet — en-têtes de sécurité
   app.use(helmet({
+    // autoriser la lecture d'assets depuis des origines externes si besoin
     contentSecurityPolicy: {
+      useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc:  ["'self'", "'unsafe-inline'"],
         styleSrc:   ["'self'", "'unsafe-inline'"],
         imgSrc:     ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", process.env.API_DOMAIN || "'self'"],
-        fontSrc:    ["'self'"],
+        // le front va appeler l'API : on autorise l'origine du front et l'API elle-même
+        connectSrc: ["'self'", frontOrigin],
+        fontSrc:    ["'self'", "data:"],
         objectSrc:  ["'none'"],
         mediaSrc:   ["'self'"],
-        frameSrc:   ["'none'"]
-      }
+        frameSrc:   ["'none'"],
+      },
     },
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-    frameguard: { action: 'deny' }
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+    frameguard: { action: "deny" },
+    // pour permettre de servir /uploads à un front externe
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   }));
 
-  // 4) CORS sécurisé + preflight
+  // 4) CORS (avec gestion dynamique de l'origine + cookies)
   const corsOptions = {
-    origin: process.env.ALLOWED_ORIGINS 
-      ? process.env.ALLOWED_ORIGINS.split(',') 
-      : ['http://localhost:5173'],
-    methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-    allowedHeaders: ['Content-Type','Authorization','X-XSRF-TOKEN'],
+    origin(origin, cb) {
+      // Autoriser aussi les requêtes sans Origin (curl/health checks)
+      if (!origin) return cb(null, true);
+      return cb(null, allowedOrigins.has(origin));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-XSRF-TOKEN"],
+    exposedHeaders: ["Content-Disposition"],
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 204,
   };
   app.use(cors(corsOptions));
-  app.options('*', cors(corsOptions));
+  app.options("*", cors(corsOptions));
 
-  // 5) Rate limiting
+  // 5) Rate limiting global + endpoints sensibles
   app.use(rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 1000,
-    message: 'Trop de requêtes, veuillez réessayer plus tard',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    message: "Trop de requêtes, veuillez réessayer plus tard",
   }));
+
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
-    message: 'Trop de tentatives, compte temporairement bloqué',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    message: "Trop de tentatives, compte temporairement bloqué",
   });
-  app.use(['/auth/connexion', '/auth/register'], authLimiter);
+  app.use(["/auth/connexion", "/auth/register"], authLimiter);
 
-  // 6) CSRF protection
+  // 6) CSRF — cookie lisible par le front (header X-XSRF-TOKEN à renvoyer)
   const csrfProtection = csurf({
     cookie: {
-      httpOnly: false, // front peut lire
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    }
+      httpOnly: false,                     // le front doit lire ce token
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+    },
   });
 
+  // Exemptions CSRF (garde ton comportement existant)
   app.use((req, res, next) => {
-    // Exempter POST /api/simulations et DELETE /api/simulations/:id
+    // Simulations (exemples donnés)
     if (
-      (req.method === 'POST' && req.path === '/api/simulations') ||
-      (req.method === 'DELETE' && req.path.startsWith('/api/simulations'))
-    ) {
-      return next();
-    }
-    // Exempter routes d'auth publiques
+      (req.method === "POST"   && req.path === "/api/simulations") ||
+      (req.method === "DELETE" && req.path.startsWith("/api/simulations"))
+    ) return next();
+
+    // Auth publiques
     const openAuth = [
-      '/auth/connexion', '/auth/register',
-      '/auth/send-verification-code', '/auth/verify-code'
+      "/auth/connexion",
+      "/auth/register",
+      "/auth/send-verification-code",
+      "/auth/verify-code",
     ];
-    if (req.method === 'POST' && openAuth.includes(req.path)) {
+    if (req.method === "POST" && openAuth.includes(req.path)) return next();
+
+    // CRUD propriétés / locataires (selon ton choix initial)
+    if (["POST","PUT","DELETE","GET"].includes(req.method) && req.path.startsWith("/api/properties"))
       return next();
-    }
-    // Exempter CRUD propriétés
-    if (['POST','PUT','DELETE','GET'].includes(req.method) && req.path.startsWith('/api/properties')) {
+    if (["POST","PUT","DELETE","GET"].includes(req.method) && req.path.startsWith("/api/tenants"))
       return next();
-    }
-    // Exempter CRUD locataires
-    if (['POST','PUT','DELETE','GET'].includes(req.method) && req.path.startsWith('/api/tenants')) {
-      return next();
-    }
-    // Appliquer CSRF pour les autres
+
     return csrfProtection(req, res, next);
   });
 
-  // Route pour récupérer un token CSRF
-  app.get('/csrf-token', (req, res) => {
+  // Endpoint pour récupérer le token CSRF
+  app.get("/csrf-token", (req, res) => {
     const token = req.csrfToken();
-    res.cookie('XSRF-TOKEN', token, {
+    res.cookie("XSRF-TOKEN", token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
     });
     res.json({ csrfToken: token });
   });
 
-  // Renvoi du CSRF dans un cookie à chaque réponse
+  // Renvoie le token à chaque réponse si disponible (facilite le refresh)
   app.use((req, res, next) => {
-    if (req.csrfToken) {
-      res.cookie('XSRF-TOKEN', req.csrfToken(), {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-      });
+    if (typeof req.csrfToken === "function") {
+      try {
+        const t = req.csrfToken();
+        res.cookie("XSRF-TOKEN", t, {
+          httpOnly: false,
+          secure: isProd,
+          sameSite: isProd ? "none" : "lax",
+        });
+      } catch {}
     }
     next();
   });
 
-  // Gestion des erreurs CSRF
-  app.use((err, req, res, next) => {
-    if (err.code === 'EBADCSRFTOKEN') {
-      return res.status(403).json({ message: 'Invalid CSRF token' });
-    }
-    next(err);
-  });
-
-  // 7) Sanitation & protection payload
+  // 7) Sanitation payloads
   app.use(sqlSanitize);
   app.use(xss());
-  app.use(hpp({ whitelist: ['sort','fields','page','limit'] }));
+  app.use(hpp({ whitelist: ["sort", "fields", "page", "limit"] }));
 }
 
 module.exports = setupSecurity;

@@ -45,14 +45,13 @@ module.exports = (sequelize, DataTypes) => {
     eauChaude:    { type: DataTypes.STRING },
     amenities:    { type: DataTypes.JSON },
 
-    // ---- ✅ Meublé / non meublé (NOUVEAU)
+    // ---- ✅ Meublé / non meublé
     isFurnished: {
       type: DataTypes.BOOLEAN,
       allowNull: true, // null = non renseigné
       comment: 'true = meublé, false = non meublé, null = non renseigné',
     },
     furnished: {
-      // si tu préfères libre, passe en STRING
       type: DataTypes.ENUM('meublé', 'non_meublé'),
       allowNull: true,
       comment: 'Valeur textuelle dérivée de isFurnished',
@@ -68,13 +67,11 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'properties',
     timestamps: true,
     hooks: {
-      // Garantit que mode est cohérent avec rentalKind
       beforeValidate(instance) {
         const rk = String(instance.rentalKind || '').toUpperCase();
         if (rk === 'AV') instance.mode = 'achat_revente';
         else if (rk === 'LLD' || rk === 'LCD') instance.mode = 'location';
 
-        // Derive furnished à partir de isFurnished si présent
         if (instance.isFurnished === true)  instance.furnished = 'meublé';
         if (instance.isFurnished === false) instance.furnished = 'non_meublé';
         if (instance.isFurnished == null)   instance.furnished = null;
@@ -83,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Property.associate = models => {
-    // ⚠️ Corrigé : on pointe vers les 2 modèles séparés
+    // LLD / LCD
     Property.hasOne(models.FinancialInfoLLD, {
       foreignKey: 'propertyId',
       as: 'financialLld',
@@ -92,6 +89,18 @@ module.exports = (sequelize, DataTypes) => {
     Property.hasOne(models.FinancialInfoLCD, {
       foreignKey: 'propertyId',
       as: 'financialCld',
+      onDelete: 'CASCADE',
+    });
+
+    // ✅ Ajout loyers
+    Property.hasOne(models.RentConfig, {
+      foreignKey: 'propertyId',
+      as: 'rentConfig',
+      onDelete: 'CASCADE',
+    });
+    Property.hasMany(models.RentPayment, {
+      foreignKey: 'propertyId',
+      as: 'rentPayments',
       onDelete: 'CASCADE',
     });
   };

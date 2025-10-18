@@ -1,10 +1,7 @@
-// models/index.js
+// src/models/index.js
 const { Sequelize, DataTypes } = require('sequelize');
 require('dotenv').config();
 
-/* ============================
-   Sequelize init
-   ============================ */
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -16,16 +13,11 @@ const sequelize = new Sequelize(
   }
 );
 
-/* ============================
-   Container d'export
-   ============================ */
 const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-/* ============================
-   Imports des modèles
-   ============================ */
+/* ====== Imports modèles ====== */
 db.User               = require('./User')(sequelize, DataTypes);
 db.Property           = require('./Property')(sequelize, DataTypes);
 db.PropertyPhoto      = require('./PropertyPhoto')(sequelize, DataTypes);
@@ -35,15 +27,14 @@ db.MortgageSimulation = require('./MortgageSimulation')(sequelize, DataTypes);
 db.Simulation         = require('./Simulation')(sequelize, DataTypes);
 db.Bill               = require('./Bill')(sequelize, DataTypes);
 db.Work               = require('./Work')(sequelize, DataTypes);
-
-// ⚠️ Nouveau : deux modèles séparés pour LLD / LCD
 db.FinancialInfoLLD   = require('./FinancialInfoLLD')(sequelize, DataTypes);
 db.FinancialInfoLCD   = require('./FinancialInfoLCD')(sequelize, DataTypes);
 
-/* ============================
-   Associations
-   ============================ */
+// ✅ NOUVEAUX
+db.RentConfig         = require('./RentConfig')(sequelize, DataTypes);
+db.RentPayment        = require('./RentPayment')(sequelize, DataTypes);
 
+/* ====== Associations ====== */
 // User ↔ Action
 db.Action.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
 db.User.hasMany(db.Action,   { foreignKey: 'userId', as: 'actions' });
@@ -61,32 +52,37 @@ db.User.hasMany(db.Property,   { foreignKey: 'userId' });
 db.Tenant.belongsTo(db.User, { foreignKey: 'userId' });
 db.User.hasMany(db.Tenant,   { foreignKey: 'userId' });
 
-// Property ↔ Financial (LLD / LCD, alias distincts)
-// Parent -> Child
+// Property ↔ Financial (LLD/LCD)
 db.Property.hasOne(db.FinancialInfoLLD, { foreignKey: 'propertyId', as: 'financialLld' });
 db.Property.hasOne(db.FinancialInfoLCD, { foreignKey: 'propertyId', as: 'financialCld' });
-// Child -> Parent (FK + CASCADE ici)
 db.FinancialInfoLLD.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
 db.FinancialInfoLCD.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
 
 // Property ↔ Bill
 db.Property.hasMany(db.Bill, { foreignKey: 'propertyId', as: 'bills' });
-// CASCADE côté enfant
 db.Bill.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
 
 // Property ↔ Photos
 db.PropertyPhoto.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
 db.Property.hasMany(db.PropertyPhoto,   { foreignKey: 'propertyId', as: 'photos' });
 
-// Work ↔ User / Property
+// Work
 db.Work.belongsTo(db.User,     { foreignKey: 'userId',    as: 'user' });
 db.User.hasMany(db.Work,       { foreignKey: 'userId',    as: 'works' });
-
-// CASCADE côté enfant sur Property
 db.Work.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
 db.Property.hasMany(db.Work,   { foreignKey: 'propertyId', as: 'works' });
 
-/* ============================
-   Export
-   ============================ */
+// ✅ Loyers
+db.Property.hasOne(db.RentConfig, { foreignKey: 'propertyId', as: 'rentConfig', onDelete: 'CASCADE' });
+db.RentConfig.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
+
+db.Property.hasMany(db.RentPayment, { foreignKey: 'propertyId', as: 'rentPayments', onDelete: 'CASCADE' });
+db.RentPayment.belongsTo(db.Property, { foreignKey: 'propertyId', as: 'property', onDelete: 'CASCADE' });
+
+db.RentConfig.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+db.User.hasMany(db.RentConfig, { foreignKey: 'userId', as: 'rentConfigs' });
+
+db.RentPayment.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+db.User.hasMany(db.RentPayment, { foreignKey: 'userId', as: 'rentPayments' });
+
 module.exports = db;
